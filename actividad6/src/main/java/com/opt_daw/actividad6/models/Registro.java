@@ -47,4 +47,5 @@ public class Registro {
     public void setContraseña(String contraseña) {
         this.contraseña = contraseña;
     }
+
 }
