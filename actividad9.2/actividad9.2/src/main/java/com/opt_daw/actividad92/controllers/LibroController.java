@@ -3,128 +3,91 @@ package com.opt_daw.actividad92.controllers;
 import com.opt_daw.actividad92.dtos.CrearLibroDto;
 import com.opt_daw.actividad92.dtos.ErrorDto;
 import com.opt_daw.actividad92.dtos.ListarLibroDto;
-import com.opt_daw.actividad92.dtos.MostrarLibroDto;
-import com.opt_daw.actividad92.models.Libro;
+import com.opt_daw.actividad92.services.LibroService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @RestController
 @RequestMapping("/libros")
 public class LibroController {
-    List<Libro> libros = new ArrayList<>();
-    private Integer id = 1;
+    @Autowired
+    private LibroService libroService;
 
     @PostMapping
     public ResponseEntity<?> crearLibro(@RequestBody CrearLibroDto libro) {
-        // Controlamos si el ISBN ya existe en la lista
-        for (Libro lib : libros) {
-            if (lib.getISBN().equals(libro.getISBN())){
-                return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorDto("ISBN duplicado"));
-            }
+        Object libroCreado = libroService.crearLibro(libro);
+        if (libroCreado instanceof ErrorDto) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(libroCreado);
+
         }
 
-        Libro crearLibro = new Libro(id++, libro.getTitulo(), libro.getAutor(), libro.getISBN(), libro.getAnioPublicacion(),
-                false, "Nota interna");
-
-        libros.add(crearLibro);
-        return ResponseEntity.status(HttpStatus.CREATED).body(new MostrarLibroDto(crearLibro.getId(), crearLibro.getTitulo(), crearLibro.getAutor()
-                , crearLibro.getISBN(), crearLibro.getAnioPublicacion(), crearLibro.getPrestado()));
+        return ResponseEntity.status(HttpStatus.OK).body(libroCreado);
     }
 
     @GetMapping
     public ResponseEntity<List<ListarLibroDto>> listarLibros() {
-        List<ListarLibroDto> listarLibroDtos = new ArrayList<>();
-
-        for (Libro libro : libros) {
-            listarLibroDtos.add(new ListarLibroDto(libro.getId(), libro.getTitulo()));
-        }
+        List<ListarLibroDto> listarLibroDtos = libroService.listarLibros();
 
         return ResponseEntity.status(HttpStatus.OK).body(listarLibroDtos);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<?> mostrarLibroId(@PathVariable Integer id){
-        Libro libroEncontrado = null;
-        for (Libro libro : libros) {
-            if (libro.getId() == id) {
-                libroEncontrado = libro;
-            }
+        Object libroEncontrado = libroService.mostrarLibroId(id);
+        if (libroEncontrado instanceof ErrorDto) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(libroEncontrado);
+
         }
 
-        if (libroEncontrado != null) {
-            return ResponseEntity.status(HttpStatus.OK).body(new MostrarLibroDto(libroEncontrado.getId(), libroEncontrado.getTitulo(),
-                    libroEncontrado.getAutor(), libroEncontrado.getISBN(), libroEncontrado.getAnioPublicacion(), libroEncontrado.getPrestado()));
-        } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorDto("El libro no existe"));
-        }
+        return ResponseEntity.status(HttpStatus.OK).body(libroEncontrado);
     }
 
     @PostMapping("/{id}/prestamo")
     public ResponseEntity<?> prestarLibro(@PathVariable Integer id) {
-        Libro libroEncontrado = null;
-        for (Libro libro : libros) {
-            if (libro.getId() == id) {
-                libroEncontrado = libro;
+        Object libroEncontrado = libroService.prestarLibro(id);
+        if (libroEncontrado instanceof ErrorDto) {
+            if (((ErrorDto) libroEncontrado).getMensaje().equals("El libro no existe")) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(libroEncontrado);
+            }
+
+            if (((ErrorDto) libroEncontrado).getMensaje().equals("El libro ya esta prestado")) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(libroEncontrado);
             }
         }
-
-        if (libroEncontrado == null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorDto("El libro no existe"));
-        }
-
-        if (libroEncontrado.getPrestado()) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorDto("El libro ya esta prestado"));
-        }
-
-        libroEncontrado.setPrestado(true);
-        return ResponseEntity.status(HttpStatus.OK).body(new MostrarLibroDto(libroEncontrado.getId(), libroEncontrado.getTitulo(),
-            libroEncontrado.getAutor(), libroEncontrado.getISBN(), libroEncontrado.getAnioPublicacion(), libroEncontrado.getPrestado()));
+        return ResponseEntity.status(HttpStatus.OK).body(libroEncontrado);
     }
 
     @PostMapping("/{id}/devolucion")
     public ResponseEntity<?> devolverLibro(@PathVariable Integer id) {
-        Libro libroEncontrado = null;
-        for (Libro libro : libros) {
-            if (libro.getId() == id) {
-                libroEncontrado = libro;
+        Object libroEncontrado = libroService.devolverLibro(id);
+        if (libroEncontrado instanceof ErrorDto) {
+            if (((ErrorDto) libroEncontrado).getMensaje().equals("El libro no existe")) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(libroEncontrado);
+            }
+
+            if (((ErrorDto) libroEncontrado).getMensaje().equals("El libro no esta prestado")) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(libroEncontrado);
             }
         }
-
-        if (libroEncontrado == null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorDto("El libro no existe"));
-        }
-
-        if (!libroEncontrado.getPrestado()) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorDto("El libro no esta prestado"));
-        }
-
-        libroEncontrado.setPrestado(false);
-        return ResponseEntity.status(HttpStatus.OK).body(new MostrarLibroDto(libroEncontrado.getId(), libroEncontrado.getTitulo(),
-                libroEncontrado.getAutor(), libroEncontrado.getISBN(), libroEncontrado.getAnioPublicacion(), libroEncontrado.getPrestado()));
+        return ResponseEntity.status(HttpStatus.OK).body(libroEncontrado);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<?> eliminarLibro(@PathVariable Integer id) {
-        Libro libroEncontrado = null;
-        for (Libro libro : libros) {
-            if (libro.getId() == id) {
-                libroEncontrado = libro;
+        Object libroEncontrado = libroService.eliminarLibro(id);
+        if (libroEncontrado instanceof ErrorDto) {
+            if (((ErrorDto) libroEncontrado).getMensaje().equals("El libro no existe")) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(libroEncontrado);
+            }
+
+            if (((ErrorDto) libroEncontrado).getMensaje().equals("El libro esta prestado")) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(libroEncontrado);
             }
         }
-
-        if (libroEncontrado == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorDto("El libro no existe"));
-        }
-
-        if (libroEncontrado.getPrestado()) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorDto("El libro esta prestado"));
-        }
-
-        libros.remove(libroEncontrado);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 }
